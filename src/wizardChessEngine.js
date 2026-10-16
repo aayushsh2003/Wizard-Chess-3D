@@ -2,6 +2,7 @@ import * as THREE_NS from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { soundManager } from './soundManager.ts';
 
 /** @type {any} */
 const THREE = THREE_NS;
@@ -2473,6 +2474,29 @@ export function initWizardChess() {
       let prevCamPos = camera.position.clone();
       let prevPiecePos = piece.mesh.position.clone();
 
+      // Trigger cinematic stone-sliding friction sound tailored to piece weight & distance
+      if (!isCapture) {
+        soundManager.playStoneSlide({
+          duration: stdMoveDuration,
+          pieceType: piece.type,
+          squares: squaresMoved
+        });
+        if (isCastling && castleRook) {
+          soundManager.playStoneSlide({
+            duration: stdMoveDuration * 0.9,
+            pieceType: 'rook',
+            squares: 2,
+            delayMs: 60
+          });
+        }
+      } else {
+        soundManager.playStoneSlide({
+          duration: tApproach,
+          pieceType: piece.type,
+          squares: squaresMoved
+        });
+      }
+
       function finishMove() {
         resetBystandersToHome();
         boardState[fromR][fromC] = null;
@@ -2504,6 +2528,19 @@ export function initWizardChess() {
           piece.mesh.position.copy(endPos);
           piece.mesh.rotation.y = piece.color === 'w' ? Math.PI : 0;
           playPieceClip(piece, 'Idle', true, 0.18);
+        }
+
+        // Play solid stone click / settling sound when piece comes to rest on square
+        soundManager.playStoneClick({
+          pieceType: piece.type,
+          intensity: isCapture ? 1.15 : 0.95
+        });
+        if (isCastling && castleRook) {
+          soundManager.playStoneClick({
+            pieceType: 'rook',
+            intensity: 0.85,
+            delayMs: 60
+          });
         }
 
         if (isCapture) {
@@ -2644,6 +2681,7 @@ export function initWizardChess() {
               (atkClipTime >= CONTACT_CLIP_TIME || elapsed >= tContact + 0.06)
             ) {
               defenderFlinchTriggered = true;
+              soundManager.playStoneStrike({ pieceType: piece.type });
               if (captured) {
                 playPieceClip(captured, 'Shatter', false, 0.04);
                 impactFlashLight.position.set(
@@ -2659,6 +2697,7 @@ export function initWizardChess() {
             if (!shatterTriggered && (atkClipTime >= BLOW_CLIP_TIME || elapsed >= tImpact + 0.06)) {
               shatterTriggered = true;
               impactActualTime = elapsed;
+              soundManager.playStoneShatter({ color: captured ? captured.color : 'w', pieceType: captured ? captured.type : 'pawn' });
               postShatterPiecePos.copy(piece.mesh.position);
               if (captured && captured.mesh) {
                 const shatterOrigin = captured.mesh.position.clone();
@@ -3342,6 +3381,13 @@ export function initWizardChess() {
       if (e.code === 'KeyH' || e.code === 'KeyU') {
         e.preventDefault();
         toggleUI();
+        return;
+      }
+
+      if (e.code === 'KeyM') {
+        e.preventDefault();
+        soundManager.toggleMute();
+        return;
       }
     });
 
@@ -3618,6 +3664,7 @@ export function initWizardChess() {
           checkmateState.phase = 'impact';
           if (!impactTriggered) {
             impactTriggered = true;
+            soundManager.playKingCrash();
             const crownImpactPos = new THREE.Vector3(
               homePos.x + fallDirX * 0.45,
               BOARD_SURFACE_Y,
@@ -3802,6 +3849,7 @@ export function initWizardChess() {
         selectedSquare = { r: clickedR, c: clickedC };
         validMoves = getLegalMovesForPiece(clickedR, clickedC);
         showSquareHighlights(clickedR, clickedC, validMoves);
+        soundManager.playStoneSelect();
       } else {
         clearSquareHighlights();
         selectedSquare = null;
@@ -4261,6 +4309,22 @@ export function initWizardChess() {
       }
     });
 
+    const btnSound = document.getElementById('btn-sound-toggle');
+    if (btnSound) {
+      const updateSoundBtn = (muted) => {
+        btnSound.textContent = muted ? 'Sound: Muted' : 'Sound: ON';
+        btnSound.classList.toggle('muted', muted);
+        btnSound.setAttribute('aria-pressed', String(!muted));
+      };
+      btnSound.addEventListener('click', () => {
+        const isMuted = soundManager.toggleMute();
+        updateSoundBtn(isMuted);
+      });
+      soundManager.subscribe((muted) => {
+        updateSoundBtn(muted);
+      });
+    }
+
     // =========================================================================
     // Lobby & Director Script Modal Interactions
     // =========================================================================
@@ -4433,6 +4497,15 @@ export function initWizardChess() {
       openLobbyModal,
       closeLobbyModal,
       toggleUI,
+      soundManager,
+      playStoneSlide: (opts) => soundManager.playStoneSlide(opts),
+      playStoneClick: (opts) => soundManager.playStoneClick(opts),
+      playStoneStrike: (opts) => soundManager.playStoneStrike(opts),
+      playStoneShatter: (opts) => soundManager.playStoneShatter(opts),
+      playKingCrash: () => soundManager.playKingCrash(),
+      toggleMute: () => soundManager.toggleMute(),
+      setMuted: (m) => soundManager.setMuted(m),
+      isMuted: () => soundManager.isMuted(),
       loadNotation: (pgn, opts) => loadNotationScript(pgn, opts),
       stepScriptForward,
       stepScriptBackward,

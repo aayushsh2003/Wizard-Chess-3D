@@ -152,6 +152,14 @@ export default function App() {
           >
             New Game
           </button>
+          <button
+            className="hud-btn"
+            id="btn-sound-toggle"
+            title="Toggle Cinematic Stone Sound Effects (Shortcut: M)"
+            onClick={() => setMobileSheetOpen(false)}
+          >
+            Sound: ON
+          </button>
 
           <div className="hud-divider" aria-hidden="true"></div>
           <div className="mobile-sheet-section-label">
@@ -208,7 +216,7 @@ export default function App() {
 
       <div id="hud-bottom">
         <div className="hint-pill" id="controls-hint">
-          <strong>Controls:</strong> Click Piece to Move &nbsp;•&nbsp; Left-Drag: Orbit &nbsp;•&nbsp; Right-Drag: Pan &nbsp;•&nbsp; Scroll: Zoom &nbsp;•&nbsp; WASD + R/F: Fly Cam &nbsp;•&nbsp; H: Hide UI
+          <strong>Controls:</strong> Click Piece to Move &nbsp;•&nbsp; Left-Drag: Orbit &nbsp;•&nbsp; Right-Drag: Pan &nbsp;•&nbsp; Scroll: Zoom &nbsp;•&nbsp; WASD + R/F: Fly Cam &nbsp;•&nbsp; M: Sound &nbsp;•&nbsp; H: Hide UI
         </div>
         <div className="captured-pill" id="captured-tray"></div>
       </div>
